@@ -1,0 +1,97 @@
+import math #used for mathematical operations
+import heapq #provides a priority queue implementation
+
+def heuristic(coords, current, goal): #the Euclidean distance between the current node and the goal node.
+
+    x1, y1 = coords[current] #coordinates for the current node
+    x2, y2 = coords[goal] #coordinates for the goal node
+    return math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2) # h= root of (x2-x1)^2 + (y2-y1)^2
+
+class State:
+    def __init__(self, node_id, parent, g, f):
+        self.node_id = node_id
+        self.parent = parent #reference to the parent state (used for backtracking)
+        self.g = g  #actual cost from the start to this node
+        self.f = f  #estimated total cost f=(g + h)
+
+    def __lt__(self, other):
+        return self.f < other.f  #for priority queue comparison
+        #prioritize states with lower costs among the two states
+
+    def __eq__(self, other):
+        return self.node_id == other.node_id and self.f == other.f
+        #checks if two staes are equal by comparing their node ids and f values
+
+def backtrack_path(state): #backtrack from the goal state to reconstruct the solution path.
+
+    path = [] #this list will hold the nodes of the solution path
+    current = state #initially set the given state (goal node)
+    while current: #continue tracing back until current is none (we have reached the start node with no parent)
+        path.append(current.node_id) #adds the node to the path list
+        current = current.parent #moves to the parent state to the current state (repeat until there is no parent)
+    return path[::-1]  #reverse to get start-to-goal order
+
+def a_star_search(coords, adjlist, start, goal): #A* Search Algorithm
+
+    minQ = []  #priority queue to store states, sorted by their f values (minimum)
+    h = heuristic(coords, start, goal) #huristic value for the start node
+    start_state = State(start, None, 0, h) #node=start, parent=none, g=0 (start to start distance 0), f=h (f=g+h as g=0 so f=h)
+    heapq.heappush(minQ, start_state) #adds the start node in the priority queue called minQ
+    visited = {}  #tracks the nodes already visited and their best g value to avoid redundant computations
+
+    while minQ: #processes nodes one by one from the priority queue (lowest f first)
+        current_state = heapq.heappop(minQ) #the lowest f state will be the current state
+
+        #check if goal is reached
+        if current_state.node_id == goal: #if the current node is the goal
+            path = backtrack_path(current_state) #if the goal is reached, reconstruct and print the path and cost using backtrack_path
+            print("Solution Path:", " -> ".join(path)) #joining the -> after each node of the solution path
+            print("Solution Cost:", current_state.g) #the cost will be current states g value
+            return
+
+        #skip if the node has been visited with a lower cost
+        if current_state.node_id in visited and visited[current_state.node_id] <= current_state.g:
+          #compares the recorded cost(g value) of the previously visited to the current paths g value
+            continue #skip the node if it has already been visited (as a cheaper path found previously)
+
+
+        #mark the current node as visited with its current g value
+        visited[current_state.node_id] = current_state.g
+
+        #expanding neighbors
+        for neighbor, cost in adjlist[current_state.node_id]: #iterates through all neighbors of the current node
+            new_g = current_state.g + cost #the new actual cost(g)= total cost from start node to the current + cost from current to neighbor
+            new_h = heuristic(coords, neighbor, goal) #calculates huristic of the neighbor
+            new_f = new_g + new_h #f=g+h
+            new_state = State(neighbor, current_state, new_g, new_f) #creates a new state object for the neighbor, (neighbor node id, current as parent, actual cost to reach to the neighbor, estimated cost from start to goal via neighbor)
+            heapq.heappush(minQ, new_state) #pushes the new_state into the priority queue (minQ)
+
+    print("No path found!") #no path from to goal
+
+#main logic to handle inputs
+coords = {}  #dictionary to store coordinates of each node
+adjlist = {}  #adjacency list to store edges
+
+with open('input.txt', 'r') as f: #open the file in read mode, 'with' ensures to close the file after reading properly
+    V = int(f.readline().strip())  #read the first line of the file (which is the number of vertices)
+    for _ in range(V): #loops runs V times, used '_' as we dont need the loop variable as it wont be used
+        nid, x, y = f.readline().split() #read a line of input and split it into 3 parts and assign them to nid,x,y
+        coords[nid] = (int(x), int(y)) #stores the coordinates as a tuple (x,y)
+        adjlist[nid] = [] #create empty list for each node's adjacent nodes
+
+    E = int(f.readline().strip())  #reads the number of edges
+    for _ in range(E): #loops E times to read info about all edges
+        n1, n2, c = f.readline().split() #reads the line and assigns them to n1,n2,c
+        adjlist[n1].append((n2, int(c))) #adds a tuple (n2,c) to the node n1, means the cost c between the node n1 and n2
+
+    startnid = f.readline().strip()  # reads the starting node
+    goalnid = f.readline().strip()  #reads the goal node
+
+print('Graph Details:') #prints the string 'Graph Details:'
+for nid in adjlist: #loops over all the nodes in the adjacency list
+    print(nid, coords[nid], '--->', adjlist[nid]) #nid -> the current node, coords[nid] -> (x,y) coordinates of the node, adjlist[nid] -> the list of its neighbor nodes and edge costs
+
+print('Start Node:', startnid, 'Goal Node:', goalnid)
+
+#perform A* Search
+a_star_search(coords, adjlist, startnid, goalnid) #coords (each nodes (x,y) coordinates) adjlist (neighboring node id and the cost to reach to that node)
